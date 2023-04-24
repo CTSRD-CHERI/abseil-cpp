@@ -175,8 +175,13 @@ bool safe_strtou128_base(absl::string_view text,
                          absl::uint128* absl_nonnull value, int base);
 
 inline constexpr int kFastToBuffer128Size = 41;
+#if defined(__CHERI_PURE_CAPABILITY__)
+// This should be at least 2 pointers + 2 bytes
+inline constexpr int kFastToBufferSize = 64;
+#else
 inline constexpr int kFastToBufferSize = 32;
-inline constexpr int kSixDigitsToBufferSize = 16;
+#endif
+static const int kSixDigitsToBufferSize = 16;
 
 // Helper function for fast formatting of floating-point values.
 // The result is the same as printf's "%g", a.k.a. "%.6g"; that is, six
