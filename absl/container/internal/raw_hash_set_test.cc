@@ -1492,8 +1492,8 @@ TYPED_TEST(SooTest, ClearBug) {
   // We are checking that original and second are close enough to each other
   // that they are probably still in the same group.  This is not strictly
   // guaranteed.
-  EXPECT_LT(static_cast<size_t>(std::abs(original - second)),
-            capacity * sizeof(typename TypeParam::value_type));
+  EXPECT_LT(std::abs(static_cast<ptrdiff_t>(original - second)),
+            capacity * sizeof(IntTable::value_type));
 }
 
 TYPED_TEST(SooTest, Erase) {
