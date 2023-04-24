@@ -476,6 +476,8 @@ absl_cc_library(
   PUBLIC
 )
 
+# XXX-AM: Disabled to work around having to use -fno-rtti
+if (FALSE)
 absl_cc_test(
   NAME
     container_memory_test
@@ -485,12 +487,11 @@ absl_cc_test(
     ${ABSL_TEST_COPTS}
   DEPS
     absl::container_memory
-    absl::no_destructor
     absl::strings
     absl::test_instance_tracker
-    absl::type_traits
     GTest::gmock_main
 )
+endif ()
 
 # Internal-only target, do not depend on directly.
 absl_cc_library(
