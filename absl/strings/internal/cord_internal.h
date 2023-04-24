@@ -22,6 +22,10 @@
 #include <cstring>
 #include <string>
 
+#if defined(__CHERI_PURE_CAPABILITY__)
+#include <cheriintrin.h>
+#endif
+
 #include "absl/base/attributes.h"
 #include "absl/base/config.h"
 #include "absl/base/internal/endian.h"
@@ -91,8 +95,23 @@ enum Constants {
 // Fast implementation of memmove for up to 15 bytes. This implementation is
 // safe for overlapping regions. If nullify_tail is true, the destination is
 // padded with '\0' up to 15 bytes.
+// CHERI requires this to work up to 31 bytes.
 template <bool nullify_tail = false>
 inline void SmallMemmove(char* dst, const char* src, size_t n) {
+#if defined(__CHERI_PURE_CAPABILITY__)
+  if (n >= 16) {
+    assert(n <= 32);
+    __uint128_t buf1;
+    __uint128_t buf2;
+    memcpy(&buf1, src, 16);
+    memcpy(&buf2, src + n - 16, 16);
+    if (nullify_tail) {
+      memset(dst, 0, n);
+    }
+    memcpy(dst, &buf1, 16);
+    memcpy(dst + n - 16, &buf2, 16);
+  } else
+#endif
   if (n >= 8) {
     assert(n <= 15);
     uint64_t buf1;
@@ -227,8 +246,14 @@ enum CordRepKind {
   // If a new tag is needed in the future, then 'FLAT' and 'MAX_FLAT_TAG' should
   // be adjusted as well as the Tag <---> Size mapping logic so that FLAT still
   // represents the minimum flat allocation size. (32 bytes as of now).
+  // XXX-AM: CHERI changes this mapping, the minimum size grows to 64 bytes.
+  // As a result there are fewer FLAT sizes.
   FLAT = 6,
+#if defined(__CHERI_PURE_CAPABILITY__)
+  MAX_FLAT_TAG = 244
+#else
   MAX_FLAT_TAG = 248
+#endif
 };
 
 // There are various locations where we want to check if some rep is a 'plain'
@@ -275,6 +300,7 @@ struct CordRep {
   // `height`, `begin` and `end` in the 3 entries. Otherwise we would need to
   // allocate room for these in the derived class, as not all compilers reuse
   // padding space from the base class (clang and gcc do, MSVC does not, etc)
+  // XXX-AM: Flexible array member will require __subobject_* annotation
   uint8_t storage[3];
   // LINT.ThenChange(cord_rep_btree.h:copy_raw)
 
@@ -448,7 +474,11 @@ ABSL_CONST_INIT CordRepExternal
     ConstInitExternalStorage<Str>::value(Str::value);
 
 enum {
+#if defined(__CHERI_PURE_CAPABILITY__)
+  kMaxInline = 31,
+#else
   kMaxInline = 15,
+#endif
 };
 
 constexpr char GetOrNull(absl::string_view data, size_t pos) {
@@ -459,7 +489,11 @@ constexpr char GetOrNull(absl::string_view data, size_t pos) {
 // guarantees that the least significant byte of cordz_info matches the first
 // byte of the inline data representation in `data`, which holds the inlined
 // size or the 'is_tree' bit.
+#if defined(__CHERI_PURE_CAPABILITY__)
+using cordz_info_t = intptr_t;
+#else
 using cordz_info_t = int64_t;
+#endif
 
 // Assert that the `cordz_info` pointer value perfectly overlaps the last half
 // of `data` and can hold a pointer value.
@@ -565,8 +599,8 @@ class InlineData {
   static bool is_either_profiled(const InlineData& data1,
                                  const InlineData& data2) {
     assert(data1.is_tree() && data2.is_tree());
-    return (data1.rep_.cordz_info() | data2.rep_.cordz_info()) !=
-           kNullCordzInfo;
+    return (data1.rep_.cordz_info() != kNullCordzInfo &&
+            data2.rep_.cordz_info() != kNullCordzInfo);
   }
 
   // Returns the cordz_info sampling instance for this instance, or nullptr
@@ -574,8 +608,12 @@ class InlineData {
   // Requires the current instance to hold a tree value.
   CordzInfo* cordz_info() const {
     assert(is_tree());
+#if defined(__CHERI_PURE_CAPABILITY__)
+    intptr_t info = static_cast<intptr_t>(rep_.cordz_info());
+#else
     intptr_t info = static_cast<intptr_t>(absl::little_endian::ToHost64(
         static_cast<uint64_t>(rep_.cordz_info())));
+#endif
     assert(info & 1);
     return reinterpret_cast<CordzInfo*>(info - 1);
   }
@@ -586,8 +624,12 @@ class InlineData {
   void set_cordz_info(CordzInfo* cordz_info) {
     assert(is_tree());
     uintptr_t info = reinterpret_cast<uintptr_t>(cordz_info) | 1;
+#if defined(__CHERI_PURE_CAPABILITY__)
+    rep_.set_cordz_info(static_cast<cordz_info_t>(info));
+#else
     rep_.set_cordz_info(
         static_cast<cordz_info_t>(absl::little_endian::FromHost64(info)));
+#endif
   }
 
   // Resets the current cordz_info to null / empty.
@@ -600,7 +642,11 @@ class InlineData {
   // Requires the current instance to hold inline data.
   const char* as_chars() const {
     assert(!is_tree());
+#if defined(__CHERI_PURE_CAPABILITY__)
+    return cheri_bounds_set_exact(rep_.as_chars(), kMaxInline);
+#else
     return rep_.as_chars();
+#endif
   }
 
   // Returns a mutable pointer to the character data inside this instance.
@@ -618,7 +664,13 @@ class InlineData {
   //
   // It's an error to read from the returned pointer without a preceding write
   // if the current instance does not hold inline data, i.e.: is_tree() == true.
-  char* as_chars() { return rep_.as_chars(); }
+  char* as_chars() {
+#if defined(__CHERI_PURE_CAPABILITY__)
+    return cheri_bounds_set_exact(rep_.as_chars(), kMaxInline);
+#else
+    return rep_.as_chars();
+#endif
+  }
 
   // Returns the tree value of this value.
   // Requires the current instance to hold a tree value.
@@ -724,7 +776,27 @@ class InlineData {
                GetOrNull(chars, 11),
                GetOrNull(chars, 12),
                GetOrNull(chars, 13),
-               GetOrNull(chars, 14)} {}
+               GetOrNull(chars, 14),
+#if defined(__CHERI_PURE_CAPABILITY__)
+               GetOrNull(chars, 15),
+               GetOrNull(chars, 16),
+               GetOrNull(chars, 17),
+               GetOrNull(chars, 18),
+               GetOrNull(chars, 19),
+               GetOrNull(chars, 20),
+               GetOrNull(chars, 21),
+               GetOrNull(chars, 22),
+               GetOrNull(chars, 23),
+               GetOrNull(chars, 24),
+               GetOrNull(chars, 25),
+               GetOrNull(chars, 26),
+               GetOrNull(chars, 27),
+               GetOrNull(chars, 28),
+               GetOrNull(chars, 29),
+               GetOrNull(chars, 30),
+               GetOrNull(chars, 31)
+#endif
+          } {}
 
 #ifdef ABSL_INTERNAL_CORD_HAVE_SANITIZER
     // Break compiler optimization for cases when value is allocated on the
@@ -812,6 +884,12 @@ class InlineData {
 
   // Private implementation of `Compare()`
   static inline int Compare(const Rep& lhs, const Rep& rhs) {
+#if defined(__CHERI_PURE_CAPABILITY__)
+    // Don't try to be smart about it; as_chars() is going to
+    // be unaligned anyway and strcmp() should be smart about
+    // using capability-wide loads.
+    return strncmp(lhs.as_chars(), rhs.as_chars(), kMaxInline);
+#else
     uint64_t x, y;
     memcpy(&x, lhs.as_chars(), sizeof(x));
     memcpy(&y, rhs.as_chars(), sizeof(y));
@@ -826,6 +904,7 @@ class InlineData {
     x = absl::big_endian::FromHost64(x);
     y = absl::big_endian::FromHost64(y);
     return x < y ? -1 : 1;
+#endif
   }
 
   Rep rep_;
