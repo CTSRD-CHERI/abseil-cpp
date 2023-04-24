@@ -203,8 +203,15 @@ char* absl_nonnull FastIntToBuffer(uint64_t i, char* absl_nonnull buffer)
 template <typename int_type>
 char* absl_nonnull FastIntToBuffer(int_type i, char* absl_nonnull buffer)
     ABSL_INTERNAL_NEED_MIN_SIZE(buffer, kFastToBufferSize) {
+#if defined(__CHERI_PURE_CAPABILITY__)
+  static_assert(sizeof(i) <= 64 / 8 ||
+                std::is_same<int_type, intptr_t>::value ||
+                std::is_same<int_type, uintptr_t>::value,
+                "FastIntToBuffer works only with 64-bit-or-less integers.");
+#else
   static_assert(sizeof(i) <= 64 / 8,
                 "FastIntToBuffer works only with 64-bit-or-less integers.");
+#endif
   // These conditions are constexpr bools to suppress MSVC warning C4127.
   constexpr bool kIsSigned = is_signed<int_type>();
   constexpr bool kUse64Bit = sizeof(i) > 32 / 8;
