@@ -205,8 +205,8 @@ int MutexDelay(int32_t c, int mode) {
 // before making any change.
 // Returns true if bits were previously unset and set by the call.
 // This is used to set flags in mutex and condition variable words.
-static bool AtomicSetBits(std::atomic<intptr_t>* pv, intptr_t bits,
-                          intptr_t wait_until_clear) {
+static bool AtomicSetBits(std::atomic<intptr_t>* pv, ptraddr_t bits,
+                          ptraddr_t wait_until_clear) {
   for (;;) {
     intptr_t v = pv->load(std::memory_order_relaxed);
     if ((v & bits) == bits) {
@@ -327,8 +327,8 @@ static struct SynchEvent {  // this is a trivial hash table for the events
 // When used with a mutex, the caller should also ensure that kMuEvent
 // is set in the mutex word, and similarly for condition variables and kCVEvent.
 static SynchEvent* EnsureSynchEvent(std::atomic<intptr_t>* addr,
-                                    const char* name, intptr_t bits,
-                                    intptr_t lockbit) {
+                                    const char* name, ptraddr_t bits,
+                                    ptraddr_t lockbit) {
   uint32_t h = reinterpret_cast<uintptr_t>(addr) % kNSynchEvent;
   synch_event_mu.Lock();
   // When a Mutex/CondVar is destroyed, we don't remove the associated
@@ -627,7 +627,7 @@ void Mutex::InternalAttemptToUseMutexInFatalSignalHandler() {
 //    bit-twiddling trick in Mutex::Unlock().
 //  o kMuWriter / kMuReader == kMuWrWait / kMuWait,
 //    to enable the bit-twiddling trick in CheckForMutexCorruption().
-static const intptr_t kMuReader = 0x0001L;  // a reader holds the lock
+static const ptraddr_t kMuReader = 0x0001L;  // a reader holds the lock
 // There's a designated waker.
 // INVARIANT1:  there's a thread that was blocked on the mutex, is
 // no longer, yet has not yet acquired the mutex.  If there's a
@@ -636,20 +636,20 @@ static const intptr_t kMuReader = 0x0001L;  // a reader holds the lock
 // the lock and wake someone.  To maintain INVARIANT1 the bit is
 // set when a thread is unblocked(INV1a), and threads that were
 // unblocked reset the bit when they either acquire or re-block (INV1b).
-static const intptr_t kMuDesig = 0x0002L;
-static const intptr_t kMuWait = 0x0004L;    // threads are waiting
-static const intptr_t kMuWriter = 0x0008L;  // a writer holds the lock
-static const intptr_t kMuEvent = 0x0010L;   // record this mutex's events
+static const ptraddr_t kMuDesig = 0x0002L;
+static const ptraddr_t kMuWait = 0x0004L;    // threads are waiting
+static const ptraddr_t kMuWriter = 0x0008L;  // a writer holds the lock
+static const ptraddr_t kMuEvent = 0x0010L;   // record this mutex's events
 // Runnable writer is waiting for a reader.
 // If set, new readers will not lock the mutex to avoid writer starvation.
 // Note: if a reader has higher priority than the writer, it will still lock
 // the mutex ahead of the waiting writer, but in a very inefficient manner:
 // the reader will first queue itself and block, but then the last unlocking
 // reader will wake it.
-static const intptr_t kMuWrWait = 0x0020L;
-static const intptr_t kMuSpin = 0x0040L;  // spinlock protects wait list
-static const intptr_t kMuLow = 0x00ffL;   // mask all mutex bits
-static const intptr_t kMuHigh = ~kMuLow;  // mask pointer/reader count
+static const ptraddr_t kMuWrWait = 0x0020L;
+static const ptraddr_t kMuSpin = 0x0040L;  // spinlock protects wait list
+static const ptraddr_t kMuLow = 0x00ffL;   // mask all mutex bits
+static const ptraddr_t kMuHigh = ~kMuLow;  // mask pointer/reader count
 
 static_assert((0xab & (kMuWriter | kMuReader)) == (kMuWriter | kMuReader),
               "The debug allocator's uninitialized pattern (0xab) must be an "
@@ -677,7 +677,7 @@ enum {
 // number of readers.  Otherwise, the reader count is held in
 // PerThreadSynch::readers of the most recently queued waiter, again in the
 // bits above kMuLow.
-static const intptr_t kMuOne = 0x0100;  // a count of one reader
+static const ptraddr_t kMuOne = 0x0100;  // a count of one reader
 
 // flags passed to Enqueue and LockSlow{,WithTimeout,Loop}
 static const int kMuHasBlocked = 0x01;  // already blocked (MUST == 1)
@@ -693,18 +693,18 @@ struct MuHowS {
   // if all the bits in fast_need_zero are zero, the lock can be acquired by
   // adding fast_add and oring fast_or.  The bit kMuDesig should be reset iff
   // this is the designated waker.
-  intptr_t fast_need_zero;
-  intptr_t fast_or;
-  intptr_t fast_add;
+  ptraddr_t fast_need_zero;
+  ptraddr_t fast_or;
+  ptraddr_t fast_add;
 
-  intptr_t slow_need_zero;  // fast_need_zero with events (e.g. logging)
+  ptraddr_t slow_need_zero;  // fast_need_zero with events (e.g. logging)
 
-  intptr_t slow_inc_need_zero;  // if all the bits in slow_inc_need_zero are
-                                // zero a reader can acquire a read share by
-                                // setting the reader bit and incrementing
-                                // the reader count (in last waiter since
-                                // we're now slow-path).  kMuWrWait be may
-                                // be ignored if we already waited once.
+  ptraddr_t slow_inc_need_zero;  // if all the bits in slow_inc_need_zero are
+                                 // zero a reader can acquire a read share by
+                                 // setting the reader bit and incrementing
+                                 // the reader count (in last waiter since
+                                 // we're now slow-path).  kMuWrWait be may
+                                 // be ignored if we already waited once.
 };
 
 static const MuHowS kSharedS = {
@@ -721,7 +721,7 @@ static const MuHowS kExclusiveS = {
     kMuWriter,                         // fast_or
     0,                                 // fast_add
     kMuWriter | kMuReader,             // slow_need_zero
-    ~static_cast<intptr_t>(0),         // slow_inc_need_zero
+    ~static_cast<ptraddr_t>(0),        // slow_inc_need_zero
 };
 static const Mutex::MuHow kShared = &kSharedS;        // shared lock
 static const Mutex::MuHow kExclusive = &kExclusiveS;  // exclusive lock
@@ -2510,10 +2510,10 @@ void Mutex::AssertReaderHeld() const {
 }
 
 // -------------------------------- condition variables
-static const intptr_t kCvSpin = 0x0001L;   // spinlock protects waiter list
-static const intptr_t kCvEvent = 0x0002L;  // record events
+static const ptraddr_t kCvSpin = 0x0001L;   // spinlock protects waiter list
+static const ptraddr_t kCvEvent = 0x0002L;  // record events
 
-static const intptr_t kCvLow = 0x0003L;  // low order bits of CV
+static const ptraddr_t kCvLow = 0x0003L;  // low order bits of CV
 
 // Hack to make constant values available to gdb pretty printer
 enum {
