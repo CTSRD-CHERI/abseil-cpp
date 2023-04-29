@@ -249,11 +249,7 @@ enum CordRepKind {
   // be adjusted as well as the Tag <---> Size mapping logic so that FLAT still
   // represents the minimum flat allocation size. (32 bytes as of now).
   FLAT = 6,
-#if defined(__CHERI_PURE_CAPABILITY__)
-  MAX_FLAT_TAG = 244
-#else
   MAX_FLAT_TAG = 248
-#endif
 };
 
 // There are various locations where we want to check if some rep is a 'plain'
@@ -748,16 +744,15 @@ class InlineData {
     struct AsTree {
       explicit constexpr AsTree(absl::cord_internal::CordRep* tree)
           : rep(tree) {}
-#if !defined(__CHERI_PURE_CAPABILITY__)
-      cordz_info_t cordz_info = kNullCordzInfo;
-#endif
       absl::cord_internal::CordRep* rep;
+      cordz_info_t cordz_info = kNullCordzInfo;
     };
 
-    explicit Rep(DefaultInitType) {}
 #if defined(__CHERI_PURE_CAPABILITY__)
-    constexpr Rep() : data{0}, cordz_info_{kNullCordzInfo} {}
+    explicit Rep(DefaultInitType) : cordz_info_{0}  {}
+    constexpr Rep() : data{0} , cordz_info_{0} {}
 #else
+    explicit Rep(DefaultInitType) {}
     constexpr Rep() : data{0} {}
 #endif
     constexpr Rep(const Rep&) = default;
@@ -766,8 +761,12 @@ class InlineData {
     explicit constexpr Rep(CordRep* rep) : as_tree(rep) {}
 
     explicit constexpr Rep(absl::string_view chars)
+#if defined(__CHERI_PURE_CAPABILITY__)
+        : data{GetOrNull(chars, 0),
+#else
         : data{static_cast<char>((chars.size() << 1)),
                GetOrNull(chars, 0),
+#endif
                GetOrNull(chars, 1),
                GetOrNull(chars, 2),
                GetOrNull(chars, 3),
@@ -783,7 +782,7 @@ class InlineData {
                GetOrNull(chars, 13),
 #if defined(__CHERI_PURE_CAPABILITY__)
                GetOrNull(chars, 14)},
-               cordz_info_{kNullCordzInfo} {}
+               cordz_info_{ static_cast<cordz_info_t>((chars.size() << 1)) } {}
 #else
                GetOrNull(chars, 14)} {}
 #endif
@@ -808,11 +807,21 @@ class InlineData {
 
     // Disable sanitizer as we must always be able to read `tag`.
     ABSL_CORD_INTERNAL_NO_SANITIZE
+#if defined(__CHERI_PURE_CAPABILITY__)
+    int8_t tag() const { return reinterpret_cast<const int8_t*>(&cordz_info_)[0]; }
+    void set_tag(int8_t rhs) { reinterpret_cast<int8_t*>(&cordz_info_)[0] = rhs; }
+#else
     int8_t tag() const { return reinterpret_cast<const int8_t*>(this)[0]; }
-    void set_tag(int8_t rhs) { reinterpret_cast<int8_t*>(self())[0] = rhs; }
+    void set_tag(int8_t rhs) { reinterpret_cast<int8_t*>(this)[0] = rhs; }
+#endif
 
-    char* as_chars() { return self()->data + 1; }
-    const char* as_chars() const { return self()->data + 1; }
+#if defined(__CHERI_PURE_CAPABILITY__)
+    char* as_chars() { return data; }
+    const char* as_chars() const { return data; }
+#else
+    char* as_chars() { return data + 1; }
+    const char* as_chars() const { return data + 1; }
+#endif
 
     bool is_tree() const { return (self()->tag() & 1) != 0; }
 
