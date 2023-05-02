@@ -763,7 +763,11 @@ TEST_P(CordTest, AppendEmptyBufferToTree) {
 TEST_P(CordTest, AppendSmallBuffer) {
   absl::Cord cord;
   absl::CordBuffer buffer = absl::CordBuffer::CreateWithDefaultLimit(3);
+#if defined(__CHERI_PURE_CAPABILITY__)
+  ASSERT_THAT(buffer.capacity(), Le(31));
+#else
   ASSERT_THAT(buffer.capacity(), Le(15));
+#endif
   memcpy(buffer.data(), "Abc", 3);
   buffer.SetLength(3);
   cord.Append(std::move(buffer));
@@ -816,7 +820,11 @@ TEST_P(CordTest, AppendAndPrependBufferArePrecise) {
 TEST_P(CordTest, PrependSmallBuffer) {
   absl::Cord cord;
   absl::CordBuffer buffer = absl::CordBuffer::CreateWithDefaultLimit(3);
+#if defined(__CHERI_PURE_CAPABILITY__)
+  ASSERT_THAT(buffer.capacity(), Le(31));
+#else
   ASSERT_THAT(buffer.capacity(), Le(15));
+#endif
   memcpy(buffer.data(), "Abc", 3);
   buffer.SetLength(3);
   cord.Prepend(std::move(buffer));
