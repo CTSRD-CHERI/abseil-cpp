@@ -240,9 +240,17 @@ char* absl_nonnull FastIntToBuffer(int_type i, char* absl_nonnull buffer)
 template <typename int_type>
 [[nodiscard]] bool safe_strtoi_base(absl::string_view s,
                                     int_type* absl_nonnull out, int base) {
+#if defined(__CHERI_PURE_CAPABILITY__)
+  static_assert(sizeof(*out) == 1 || sizeof(*out) == 2 || sizeof(*out) == 4 ||
+                    sizeof(*out) == 8 ||
+                    std::is_same<int_type, intptr_t>::value ||
+                    std::is_same<int_type, uintptr_t>::value,
+                "SimpleAtoi works only with 32-bit or 64-bit integers.");
+#else
   static_assert(sizeof(*out) == 1 || sizeof(*out) == 2 || sizeof(*out) == 4 ||
                     sizeof(*out) == 8,
                 "SimpleAtoi works only with 8, 16, 32, or 64-bit integers.");
+#endif
   static_assert(!std::is_floating_point<int_type>::value,
                 "Use SimpleAtof or SimpleAtod instead.");
   bool parsed;
