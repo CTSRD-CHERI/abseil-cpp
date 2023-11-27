@@ -212,6 +212,14 @@ struct Hex {
       std::enable_if_t<sizeof(Int) == 8 && !std::is_pointer<Int>::value, bool> =
           true)
       : Hex(spec, static_cast<uint64_t>(v)) {}
+#if __has_feature(capabilities)
+  template <typename Int>
+  explicit Hex(
+      Int v, PadSpec spec = absl::kNoPad,
+      typename std::enable_if<std::is_same_v<Int, intcap_t> ||
+                              std::is_same_v<Int, uintcap_t>>::type* = nullptr)
+      : Hex(spec, static_cast<uint64_t>(v)) {}
+#endif
   template <typename Pointee>
   explicit Hex(Pointee* absl_nullable v, PadSpec spec = absl::kNoPad)
       : Hex(spec, static_cast<ptraddr_t>(reinterpret_cast<uintptr_t>(v))) {}
