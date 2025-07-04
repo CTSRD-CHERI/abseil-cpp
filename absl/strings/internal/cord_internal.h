@@ -23,7 +23,7 @@
 #include <string>
 
 #if defined(__CHERI_PURE_CAPABILITY__)
-#include <cheri/cheric.h>
+#include <cheriintrin.h>
 #endif
 
 #include "absl/base/attributes.h"
@@ -638,7 +638,7 @@ class InlineData {
   const char* as_chars() const {
     assert(!is_tree());
 #if defined(__CHERI_PURE_CAPABILITY__)
-    return cheri_setbounds(rep_.as_chars(), kMaxInline + 1);
+    return cheri_bounds_set(rep_.as_chars(), kMaxInline + 1);
 #else
     return rep_.as_chars();
 #endif
@@ -661,7 +661,7 @@ class InlineData {
   // if the current instance does not hold inline data, i.e.: is_tree() == true.
   char* as_chars() {
 #if defined(__CHERI_PURE_CAPABILITY__)
-    return cheri_setbounds(rep_.as_chars(), kMaxInline + 1);
+    return cheri_bounds_set(rep_.as_chars(), kMaxInline + 1);
 #else
     return rep_.as_chars();
 #endif
