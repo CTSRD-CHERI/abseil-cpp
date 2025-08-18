@@ -910,4 +910,12 @@ static_assert(ABSL_INTERNAL_INLINE_NAMESPACE_STR[0] != 'h' ||
 #define ABSL_INTERNAL_HAVE_ARM_NEON 1
 #endif
 
+#ifndef ptraddr_t
+#ifdef __PTRADDR_TYPE__
+typedef __PTRADDR_TYPE__ ptraddr_t;
+#else
+typedef __UINTPTR_TYPE__ ptraddr_t;
+#endif
+#endif
+
 #endif  // ABSL_BASE_CONFIG_H_
