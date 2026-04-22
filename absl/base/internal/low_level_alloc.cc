@@ -63,7 +63,7 @@
 #endif  // __APPLE__
 
 #if defined(__CHERI_PURE_CAPABILITY__)
-#include <cheri/cheric.h>
+#include <cheriintrin.h>
 #endif
 
 namespace absl {
@@ -529,8 +529,9 @@ static void Coalesce(AllocList *a) {
     // This is a workaround that will cause fragmentation, we shoud find a
     // way to re-derive capabilities, as long as they don't belong to
     // different reservations.
-    if (cheri_gettop(a) < static_cast<ptraddr_t>(reinterpret_cast<intptr_t>(n) +
-                                                 n->header.size)) {
+    if (cheri_base_get(a) + cheri_length_get(a) <
+        static_cast<ptraddr_t>(reinterpret_cast<intptr_t>(n) +
+                               n->header.size)) {
       return;
     }
 #endif
