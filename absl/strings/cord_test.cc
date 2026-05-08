@@ -278,7 +278,11 @@ INSTANTIATE_TEST_SUITE_P(WithParam, CordTest, testing::Bool(),
 TEST(CordRepFlat, AllFlatCapacities) {
   // Explicitly and redundantly assert built-in min/max limits
   static_assert(absl::cord_internal::kFlatOverhead < 32, "");
+#if defined(__CHERI_PURE_CAPABILITY__)
+  static_assert(absl::cord_internal::kMinFlatSize == 64, "");
+#else
   static_assert(absl::cord_internal::kMinFlatSize == 32, "");
+#endif
   EXPECT_EQ(absl::cord_internal::TagToAllocatedSize(FLAT), 32);
   static_assert(absl::cord_internal::kMaxLargeFlatSize == 256 << 10, "");
   EXPECT_EQ(absl::cord_internal::TagToAllocatedSize(MAX_FLAT_TAG), 256 << 10);
