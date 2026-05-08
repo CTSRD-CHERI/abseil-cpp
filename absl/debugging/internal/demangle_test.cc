@@ -2035,6 +2035,7 @@ struct Base {
 
 struct Derived : public Base {};
 
+#if defined(ABSL_INTERNAL_HAS_RTTI)
 TEST(DemangleStringTest, SupportsSymbolNameReturnedByTypeId) {
   EXPECT_EQ(DemangleString(typeid(int).name()), "int");
   // We want to test that `DemangleString` can demangle the symbol names
@@ -2047,6 +2048,7 @@ TEST(DemangleStringTest, SupportsSymbolNameReturnedByTypeId) {
               ContainsRegex(
                   "absl.*debugging_internal.*anonymous namespace.*::Derived"));
 }
+#endif
 
 }  // namespace
 }  // namespace debugging_internal

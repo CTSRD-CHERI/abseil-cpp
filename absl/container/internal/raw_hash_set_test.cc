@@ -621,6 +621,7 @@ struct CustomAllocIntTable
   using Base::Base;
 };
 
+#if defined(ABSL_INTERNAL_HAS_RTTI)
 template <typename T>
 struct ChangingSizeAndTrackingTypeAlloc : std::allocator<T> {
   ChangingSizeAndTrackingTypeAlloc() = default;
@@ -664,6 +665,7 @@ struct ChangingSizeAllocIntTable
   using Base = typename ChangingSizeAllocIntTable::raw_hash_set;
   using Base::Base;
 };
+#endif
 
 struct MinimumAlignmentUint8Table
     : raw_hash_set<Uint8Policy, hash_default_hash<uint8_t>,
@@ -734,12 +736,14 @@ using SooInt32Table =
 using SooIntTable = ValueTable<int64_t, /*kTransferable=*/true, /*kSoo=*/true>;
 using NonMemcpyableSooIntTable =
     ValueTable<int64_t, /*kTransferable=*/false, /*kSoo=*/true>;
+#if defined(ABSL_INTERNAL_HAS_RTTI)
 using MemcpyableSooIntCustomAllocTable =
     ValueTable<int64_t, /*kTransferable=*/true, /*kSoo=*/true,
                ChangingSizeAndTrackingTypeAlloc<int64_t>>;
 using NonMemcpyableSooIntCustomAllocTable =
     ValueTable<int64_t, /*kTransferable=*/false, /*kSoo=*/true,
                ChangingSizeAndTrackingTypeAlloc<int64_t>>;
+#endif
 
 TEST(Table, EmptyFunctorOptimization) {
   static_assert(std::is_empty<std::equal_to<absl::string_view>>::value, "");
@@ -822,9 +826,14 @@ template <class TableType>
 class SooTest : public testing::Test {};
 
 using SooTableTypes =
+#if defined(ABSL_INTERNAL_HAS_RTTI)
     ::testing::Types<SooIntTable, NonSooIntTable, NonMemcpyableSooIntTable,
                      MemcpyableSooIntCustomAllocTable,
                      NonMemcpyableSooIntCustomAllocTable>;
+#else
+    ::testing::Types<SooIntTable, NonSooIntTable, NonMemcpyableSooIntTable>;
+#endif
+
 TYPED_TEST_SUITE(SooTest, SooTableTypes);
 
 TYPED_TEST(SooTest, Empty) {
@@ -993,7 +1002,9 @@ using SmallTableTypes = ::testing::Types<
     ValueTable<SizedValue<24>, /*kTransferable=*/true, /*kSoo=*/true>,
     ValueTable<SizedValue<24>, /*kTransferable=*/false, /*kSoo=*/true>,
     // Special tables.
+#if defined(ABSL_INTERNAL_HAS_RTTI)
     MinimumAlignmentUint8Table, CustomAllocIntTable, ChangingSizeAllocIntTable,
+#endif
     BadTable,
     // alignment 1, size 2.
     ValueTable<AlignedValue<uint8_t, 2>, /*kTransferable=*/true, /*kSoo=*/true>,
