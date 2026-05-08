@@ -564,7 +564,7 @@ static void Coalesce(AllocList *a) {
     // way to re-derive capabilities, as long as they don't belong to
     // different reservations.
     if (cheri_top_get(a) < static_cast<ptraddr_t>(
-        reinterpret_cast<intptr_t>(n) + n->header.size)) {
+        reinterpret_cast<uintptr_t>(n) + n->header.size)) {
       return;
     }
 #endif
