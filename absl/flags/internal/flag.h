@@ -368,7 +368,11 @@ struct alignas(8) FlagValueAndInitBit {
 // of the FlagValue<T, FlagValueStorageKind::kHeapAllocated> specialization.
 class MaskedPointer {
  public:
+#if defined(__CHERI_PURE_CAPABILITY__)
+  using mask_t = ptraddr_t;
+#else
   using mask_t = uintptr_t;
+#endif
   using ptr_t = void*;
 
   static constexpr int RequiredAlignment() { return 4; }
@@ -381,11 +385,19 @@ class MaskedPointer {
   MaskedPointer& operator=(const MaskedPointer& rhs) = default;
 
   void* Ptr() const {
+#if defined(__CHERI_PURE_CAPABILITY__)
+    return reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(ptr_) &
+#else
     return reinterpret_cast<void*>(reinterpret_cast<mask_t>(ptr_) &
+#endif
                                    kPtrValueMask);
   }
   bool AllowsUnprotectedRead() const {
+#if defined(__CHERI_PURE_CAPABILITY__)
+    return (reinterpret_cast<uintptr_t>(ptr_) & kAllowsUnprotectedRead) ==
+#else
     return (reinterpret_cast<mask_t>(ptr_) & kAllowsUnprotectedRead) ==
+#endif
            kAllowsUnprotectedRead;
   }
   bool IsUnprotectedReadCandidate() const;
