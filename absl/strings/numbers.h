@@ -208,6 +208,12 @@ char* absl_nonnull FastIntToBuffer(int128 i, char* absl_nonnull buffer)
     ABSL_INTERNAL_NEED_MIN_SIZE(buffer, kFastToBuffer128Size);
 char* absl_nonnull FastIntToBuffer(uint128 i, char* absl_nonnull buffer)
     ABSL_INTERNAL_NEED_MIN_SIZE(buffer, kFastToBuffer128Size);
+#if defined(__CHERI_PURE_CAPABILITY__)
+char* absl_nonnull FastIntToBuffer(intptr_t i, char* absl_nonnull buffer)
+    ABSL_INTERNAL_NEED_MIN_SIZE(buffer, kFastToBuffer128Size);
+char* absl_nonnull FastIntToBuffer(uintptr_t i, char* absl_nonnull buffer)
+    ABSL_INTERNAL_NEED_MIN_SIZE(buffer, kFastToBuffer128Size);
+#endif
 
 // For enums and integer types that are up to 128 bits and are not an exact
 // match for the types above, use templates to call the appropriate one of the
