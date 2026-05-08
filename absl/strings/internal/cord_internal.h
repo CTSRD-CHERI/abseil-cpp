@@ -618,7 +618,7 @@ class InlineData {
   // Requires the current instance to hold a tree value.
   void set_cordz_info(CordzInfo* cordz_info) {
     assert(is_tree());
-    uintptr_t info = reinterpret_cast<uintptr_t>(cordz_info) | 1;
+    intptr_t info = reinterpret_cast<intptr_t>(cordz_info) | 1;
 #if defined(__CHERI_PURE_CAPABILITY__)
     rep_.set_cordz_info(info);
 #else
