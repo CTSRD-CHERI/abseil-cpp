@@ -2074,7 +2074,16 @@ template size_t GrowSooTableToNextCapacityAndPrepareInsert<
     OptimalMemcpySizeForSooSlotTransfer(16), true>(
     CommonFields&, const PolicyFunctions&, absl::FunctionRef<size_t(size_t)>,
     bool);
+#if defined(__CHERI_PURE_CAPABILITY__)
+static_assert(VerifyOptimalMemcpySizeForSooSlotTransferRange(17, 32));
+template size_t GrowSooTableToNextCapacityAndPrepareInsert<
+    OptimalMemcpySizeForSooSlotTransfer(32), true>(
+    CommonFields&, const PolicyFunctions&, absl::FunctionRef<size_t(size_t)>,
+    bool);
+static_assert(MaxSooSlotSize() == 32);
+#else
 static_assert(MaxSooSlotSize() == 16);
+#endif
 #endif
 
 template void* AllocateBackingArray<BackingArrayAlignment(alignof(size_t)),
