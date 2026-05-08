@@ -1163,7 +1163,7 @@ void Mutex::TryRemove(PerThreadSynch* s) {
       if (h != nullptr) {
         nv = reinterpret_cast<uintptr_t>(h) | static_cast<ptraddr_t>(nv) |
              kMuWait;
-        h->readers = 0;            // we hold writer lock
+        h->readers = 0;              // we hold writer lock
         h->maybe_unlocking = false;  // finished unlocking
       }
     } while (!mu_.compare_exchange_weak(v, nv, std::memory_order_release,
@@ -1608,7 +1608,7 @@ bool Mutex::AwaitCommon(const Condition& cond, KernelTimeout t) {
 
 bool Mutex::try_lock() {
   ABSL_TSAN_MUTEX_PRE_LOCK(this, __tsan_mutex_try_lock);
-  intptr_t v = mu_.load(std::memory_order_relaxed);
+  uintptr_t v = mu_.load(std::memory_order_relaxed);
   // Try fast acquire.
   if (ABSL_PREDICT_TRUE((v & (kMuWriter | kMuReader | kMuEvent)) == 0)) {
     if (ABSL_PREDICT_TRUE(mu_.compare_exchange_strong(
@@ -1628,7 +1628,7 @@ bool Mutex::try_lock() {
 }
 
 ABSL_ATTRIBUTE_NOINLINE bool Mutex::TryLockSlow() {
-  intptr_t v = mu_.load(std::memory_order_relaxed);
+  uintptr_t v = mu_.load(std::memory_order_relaxed);
   if ((v & kExclusive->slow_need_zero) == 0 &&  // try fast acquire
       mu_.compare_exchange_strong(
           v, (kExclusive->fast_or | v) + kExclusive->fast_add,
@@ -1682,7 +1682,7 @@ bool Mutex::try_lock_shared() {
 }
 
 ABSL_ATTRIBUTE_NOINLINE bool Mutex::ReaderTryLockSlow() {
-  intptr_t v = mu_.load(std::memory_order_relaxed);
+  uintptr_t v = mu_.load(std::memory_order_relaxed);
 #if defined(__clang__)
 #pragma nounroll
 #endif
@@ -2161,14 +2161,12 @@ ABSL_ATTRIBUTE_NOINLINE void Mutex::UnlockSlow(SynchWaitParams* waitp) {
     } else if ((v & (kMuReader | kMuWait)) == kMuReader && waitp == nullptr) {
       // fast reader release (reader with no waiters)
       ptraddr_t clear = ExactlyOneReader(v) ? kMuReader | kMuOne : kMuOne;
-      if (mu_.compare_exchange_strong(v, v - clear,
-                                      std::memory_order_release,
+      if (mu_.compare_exchange_strong(v, v - clear, std::memory_order_release,
                                       std::memory_order_relaxed)) {
         return;
       }
     } else if ((v & kMuSpin) == 0 &&  // attempt to get spinlock
-               mu_.compare_exchange_strong(v, v | kMuSpin,
-                                           std::memory_order_acquire,
+               mu_.compare_exchange_strong(v, v | kMuSpin, std::memory_order_acquire,
                                            std::memory_order_relaxed)) {
       if ((v & kMuWait) == 0) {  // no one to wake
         uintptr_t nv;
