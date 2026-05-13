@@ -279,11 +279,12 @@ TEST(CordRepFlat, AllFlatCapacities) {
   // Explicitly and redundantly assert built-in min/max limits
   static_assert(absl::cord_internal::kFlatOverhead < 32, "");
 #if defined(__CHERI_PURE_CAPABILITY__)
-  static_assert(absl::cord_internal::kMinFlatSize == 64, "");
+  static_assert(absl::cord_internal::kMinFlatSize == 56, "");
+  EXPECT_EQ(absl::cord_internal::TagToAllocatedSize(FLAT), 56);
 #else
   static_assert(absl::cord_internal::kMinFlatSize == 32, "");
-#endif
   EXPECT_EQ(absl::cord_internal::TagToAllocatedSize(FLAT), 32);
+#endif
   static_assert(absl::cord_internal::kMaxLargeFlatSize == 256 << 10, "");
   EXPECT_EQ(absl::cord_internal::TagToAllocatedSize(MAX_FLAT_TAG), 256 << 10);
 
@@ -802,10 +803,18 @@ TEST_P(CordTest, AppendAndPrependBufferArePrecise) {
 
 #ifndef NDEBUG
   // Allow 32 bytes new CordRepFlat, and 128 bytes for 'glue nodes'
+#if defined(__CHERI_PURE_CAPABILITY__)
+  constexpr size_t kMaxDelta = 128 + 56;
+#else
   constexpr size_t kMaxDelta = 128 + 32;
+#endif
 #else
   // Allow 256 bytes extra for 'allocation debug overhead'
+#if defined(__CHERI_PURE_CAPABILITY__)
+  constexpr size_t kMaxDelta = 128 + 56 + 256;
+#else
   constexpr size_t kMaxDelta = 128 + 32 + 256;
+#endif
 #endif
 
   EXPECT_LE(cord1.EstimatedMemoryUsage() - size1, kMaxDelta);

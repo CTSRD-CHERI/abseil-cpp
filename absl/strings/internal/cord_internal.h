@@ -237,7 +237,11 @@ enum CordRepKind {
   CRC = 2,
   BTREE = 3,
   UNUSED_4 = 4,
+#if defined(__CHERI_PURE_CAPABILITY__)
+  EXTERNAL = 8,
+#else
   EXTERNAL = 5,
+#endif
 
   // We have different tags for different sized flat arrays,
   // starting with FLAT, and limited to MAX_FLAT_TAG. The below values map to an
@@ -248,7 +252,12 @@ enum CordRepKind {
   // If a new tag is needed in the future, then 'FLAT' and 'MAX_FLAT_TAG' should
   // be adjusted as well as the Tag <---> Size mapping logic so that FLAT still
   // represents the minimum flat allocation size. (32 bytes as of now).
+  //
+#if defined(__CHERI_PURE_CAPABILITY__)
+  FLAT = 9,
+#else
   FLAT = 6,
+#endif
   MAX_FLAT_TAG = 248
 };
 
