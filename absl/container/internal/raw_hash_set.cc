@@ -1208,8 +1208,13 @@ class ProbedItemEncoder {
 
  private:
   static ProbedItem* AlignToNextItem(void* ptr) {
+#if __has_builtin(__builtin_align_up)
+    return reinterpret_cast<ProbedItem*>(
+        __builtin_align_up(ptr, alignof(ProbedItem)));
+#else
     return reinterpret_cast<ProbedItem*>(AlignUpTo(
         reinterpret_cast<uintptr_t>(ptr), alignof(ProbedItem)));
+#endif
   }
 
   ProbedItem* OverflowBufferStart() const {
