@@ -1214,7 +1214,16 @@ class ProbedItemEncoder {
 
   ProbedItem* OverflowBufferStart() const {
     // We reuse GrowthInfo memory as well.
+#if defined(__CHERI_PURE_CAPABILITY__)
+    // XXX.GJ: Can this be performed without rederiving the capability?
+    auto control = control_;
+    AlignToNextItem(control - ControlOffset(/*has_infoz=*/false));
+    return reinterpret_cast<ProbedItem*>(
+        __builtin_cheri_address_set(control_,
+        __builtin_cheri_address_get(control)));
+#else
     return AlignToNextItem(control_ - ControlOffset(/*has_infoz=*/false));
+#endif
   }
 
   // Encodes item when previously allocated buffer is full.
