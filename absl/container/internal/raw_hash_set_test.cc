@@ -788,7 +788,11 @@ TEST(Table, EmptyFunctorOptimization) {
                        std::equal_to<absl::string_view>, std::allocator<int>>));
 
   EXPECT_EQ(
+#if defined(__CHERI_PURE_CAPABILITY__)
+      __builtin_align_up(mock_size + sizeof(StatefulHash) + generation_size, alignof(max_align_t)),
+#else
       mock_size + sizeof(StatefulHash) + generation_size,
+#endif
       sizeof(
           raw_hash_set<StringPolicy, StatefulHash,
                        std::equal_to<absl::string_view>, std::allocator<int>>));
